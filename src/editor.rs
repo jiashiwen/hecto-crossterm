@@ -447,7 +447,8 @@ impl Editor {
             let key = keyevent.code;
             match key {
                 KeyCode::Backspace => result.truncate(result.len().saturating_sub(1)),
-                KeyCode::Char('\n') => break,
+                // KeyCode::Char('\n') => break,
+                KeyCode::Enter => break,
                 KeyCode::Char(c) => {
                     if !c.is_control() {
                         result.push(c);
