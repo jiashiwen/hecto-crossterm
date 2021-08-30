@@ -59,7 +59,7 @@ impl Terminal {
     }
     // pub fn read_key() -> Result<KeyCode, std::io::Error> {
     pub fn read_key() -> Result<KeyEvent, std::io::Error> {
-        enable_raw_mode();
+        // enable_raw_mode();
         if let event::Event::Key(key) = read()? {
             return Ok(key);
         }

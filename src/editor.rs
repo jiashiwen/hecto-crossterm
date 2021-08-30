@@ -8,6 +8,7 @@ use std::time::Instant;
 use crossterm::style::Color;
 // use termion::event::Key;
 use crossterm::event::{self, KeyCode, KeyEvent, KeyModifiers};
+use crossterm::terminal::disable_raw_mode;
 
 // const STATUS_FG_COLOR: color::Rgb = color::Rgb(63, 63, 63);
 const STATUS_FG_COLOR: Color = Color::Rgb { r: 63, g: 63, b: 63 };
@@ -203,6 +204,7 @@ impl Editor {
                     self.quit_times -= 1;
                     return Ok(());
                 }
+                disable_raw_mode();
                 self.should_quit = true
             }
             // Key::Ctrl('s') => self.save(),
