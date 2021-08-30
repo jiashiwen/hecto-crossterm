@@ -4,20 +4,12 @@ use crate::Terminal;
 use std::env;
 use std::time::Duration;
 use std::time::Instant;
-// use termion::color;
 use crossterm::style::Color;
-// use termion::event::Key;
 use crossterm::event::{self, KeyCode, KeyEvent, KeyModifiers};
 use crossterm::terminal::disable_raw_mode;
 
-// const STATUS_FG_COLOR: color::Rgb = color::Rgb(63, 63, 63);
+
 const STATUS_FG_COLOR: Color = Color::Rgb { r: 63, g: 63, b: 63 };
-// const STATUS_BG_COLOR: color::Rgb = color::Rgb(239, 239, 239);
-// const STATUS_BG_COLOR: Color = Color::Rgb {
-//     r: 239,
-//     g: 239,
-//     b: 239,
-// };
 const STATUS_BG_COLOR: Color = Color::Rgb {
     r: 135,
     g: 206,
@@ -190,8 +182,6 @@ impl Editor {
     }
     fn process_keypress(&mut self) -> Result<(), std::io::Error> {
         let pressed_key = Terminal::read_key()?;
-
-
         match pressed_key {
             KeyEvent {
                 code: KeyCode::Char('q'), modifiers: KeyModifiers::CONTROL
@@ -425,8 +415,6 @@ impl Editor {
         Terminal::set_fg_color(STATUS_FG_COLOR);
         println!("{}\r", status);
         Terminal::reset_color();
-        // Terminal::reset_fg_color();
-        // Terminal::reset_bg_color();
     }
     fn draw_message_bar(&self) {
         Terminal::clear_current_line();
