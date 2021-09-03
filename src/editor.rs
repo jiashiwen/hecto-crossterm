@@ -29,6 +29,7 @@ pub enum SearchDirection {
 #[derive(Default, Clone)]
 pub struct Position {
     pub x: usize,
+    pub x_word_index: usize,
     pub y: usize,
 }
 
@@ -120,6 +121,7 @@ impl Editor {
             self.draw_message_bar();
             Terminal::cursor_position(&Position {
                 x: self.cursor_position.x.saturating_sub(self.offset.x),
+                x_word_index: 0,
                 y: self.cursor_position.y.saturating_sub(self.offset.y),
             });
         }
@@ -208,7 +210,7 @@ impl Editor {
             KeyEvent {
                 code: KeyCode::Char(c), ..
             } => {
-                self.document.insert(&self.cursor_position, c);
+                self.document.insert(&mut self.cursor_position, c);
                 self.move_cursor(KeyCode::Right);
             }
             KeyEvent {
@@ -217,6 +219,7 @@ impl Editor {
                 self.document.insert_newline(&self.cursor_position);
                 self.cursor_position.y = self.cursor_position.y.saturating_add(1);
                 self.cursor_position.x = 0;
+                self.cursor_position.x_word_index = 0;
             }
             KeyEvent {
                 code: KeyCode::Delete, ..
@@ -225,7 +228,7 @@ impl Editor {
             KeyEvent {
                 code: KeyCode::Backspace, ..
             } => {
-                if self.cursor_position.x > 0 || self.cursor_position.y > 0 {
+                if self.cursor_position.x_word_index > 0 || self.cursor_position.y > 0 {
                     self.move_cursor(KeyCode::Left);
                     self.document.delete(&self.cursor_position);
                 }
@@ -264,7 +267,7 @@ impl Editor {
         Ok(())
     }
     fn scroll(&mut self) {
-        let Position { x, y } = self.cursor_position;
+        let Position { x, x_word_index, y } = self.cursor_position;
         let width = self.terminal.size().width as usize;
         let height = self.terminal.size().height as usize;
         let mut offset = &mut self.offset;
@@ -281,38 +284,108 @@ impl Editor {
     }
     fn move_cursor(&mut self, key: KeyCode) {
         let terminal_height = self.terminal.size().height as usize;
-        let Position { mut y, mut x } = self.cursor_position;
+        let Position { mut y, mut x_word_index, mut x } = self.cursor_position;
         let height = self.document.len();
         let mut width = if let Some(row) = self.document.row(y) {
-            row.len()
+            // row.len()
+            row.width()
         } else {
             0
         };
         match key {
-            KeyCode::Up => y = y.saturating_sub(1),
-            KeyCode::Down => {
-                if y < height {
-                    y = y.saturating_add(1);
+            KeyCode::Up => {
+                y = y.saturating_sub(1);
+                //计算x值,更新word_index
+                // if y > 0 {
+                if x_word_index > self.document.rows[y]
+                    .word_width_index.len() {
+                    x_word_index = self.document.rows[y]
+                        .word_width_index.len();
                 }
+                let mut x_cursor = 0;
+                for word_len in self.document.rows[y]
+                    .word_width_index.clone().iter().take(x_word_index) {
+                    x_cursor = x_cursor + word_len;
+                }
+                x = x_cursor;
+                // }
+            }
+            KeyCode::Down => {
+                //计算x值,更新word_index
+                if y >= 0 && height > 0 && y < height - 1 {
+                    y = y.saturating_add(1);
+                    if y < self.document.rows.len() {
+                        if x_word_index > self.document.rows[y]
+                            .word_width_index.len() {
+                            x_word_index = self.document.rows[y]
+                                .word_width_index.len();
+                        }
+                        let mut x_cursor = 0;
+                        for word_len in self.document.rows[y]
+                            .word_width_index.clone().iter().take(x_word_index) {
+                            x_cursor = x_cursor + word_len;
+                        }
+                        x = x_cursor;
+                    }
+                }
+                log::info!("y: {}",y);
             }
             KeyCode::Left => {
-                if x > 0 {
-                    x -= 1;
+                // if x > 0 {
+                if x_word_index > 0 && y < height {
+                    x_word_index -= 1;
+                    let mut x_cursor = 0;
+                    for word_len in self.document.rows[y]
+                        .word_width_index.clone().iter().take(x_word_index) {
+                        x_cursor = x_cursor + word_len;
+                    }
+                    x = x_cursor;
                 } else if y > 0 {
                     y -= 1;
                     if let Some(row) = self.document.row(y) {
-                        x = row.len();
+                        // x = row.len();
+                        let mut x_cursor = 0;
+                        for word_len in self.document.rows[y]
+                            .word_width_index.clone().iter() {
+                            x_cursor = x_cursor + word_len;
+                        }
+                        x_word_index = self.document.rows[y]
+                            .word_width_index
+                            .len();
+                        x = x_cursor;
                     } else {
                         x = 0;
                     }
                 }
             }
             KeyCode::Right => {
-                if x < width {
-                    x += 1;
-                } else if y < height {
+                // if x < width {
+                if y < height && x_word_index < self.document.rows[y].word_width_index.len() {
+                    x_word_index += 1;
+                    let mut x_cursor = 0;
+                    for word_len in self.document.rows[y]
+                        .word_width_index.clone().iter().take(x_word_index) {
+                        x_cursor = x_cursor + word_len;
+                    }
+
+                    x = x_cursor;
+                    // // x += 1;
+                    // let mut index = x.saturating_add(1);
+                    // let str = &self.document.rows[y].string;
+                    // while index < str.len()
+                    //     && !str.is_char_boundary(index) {
+                    //     index += 1;
+                    // }
+                    //
+                    // if index - x > 1 {
+                    //     x += 2;
+                    // } else {
+                    //     x += 1;
+                    // }
+                } else if y < height - 1 {
                     y += 1;
                     x = 0;
+                    x_word_index = 0;
                 }
             }
             KeyCode::PageUp => {
@@ -330,7 +403,13 @@ impl Editor {
                 }
             }
             KeyCode::Home => x = 0,
-            KeyCode::End => x = width,
+            KeyCode::End => {
+                let mut x_cursor_position: usize = 0;
+                for word_space in self.document.rows[y].word_width_index.clone() {
+                    x_cursor_position = x_cursor_position + word_space;
+                }
+                x = x_cursor_position
+            }
             _ => (),
         }
         width = if let Some(row) = self.document.row(y) {
@@ -338,11 +417,19 @@ impl Editor {
         } else {
             0
         };
-        if x > width {
-            x = width;
-        }
 
-        self.cursor_position = Position { x, y }
+        // let mut x_cursor_position: usize = 0;
+        // for word_space in self.document.rows[y].word_width_index.clone() {
+        //     x_cursor_position = x_cursor_position + word_space;
+        // }
+        // if x > x_cursor_position {
+        //     x = x_cursor_position;
+        // }
+        // if x > width {
+        //     x = width;
+        // }
+
+        self.cursor_position = Position { x, x_word_index, y }
     }
     fn draw_welcome_message(&self) {
         let mut welcome_message = format!("Hecto editor -- version {}", VERSION);

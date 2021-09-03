@@ -14,6 +14,9 @@ mod filetype;
 mod highlighting;
 mod row;
 mod terminal;
+mod logger;
+
+use crate::logger::init_log;
 
 pub use document::Document;
 use editor::Editor;
@@ -26,6 +29,7 @@ pub use terminal::Terminal;
 use crossterm::terminal::enable_raw_mode;
 
 fn main() {
+    init_log();
     enable_raw_mode();
     Editor::default().run();
 }

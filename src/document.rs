@@ -7,7 +7,7 @@ use std::io::{Error, Write};
 
 #[derive(Default)]
 pub struct Document {
-    rows: Vec<Row>,
+    pub rows: Vec<Row>,
     pub file_name: Option<String>,
     dirty: bool,
     file_type: FileType,
@@ -50,26 +50,29 @@ impl Document {
         }
         #[allow(clippy::indexing_slicing)]
             let current_row = &mut self.rows[at.y];
-        let new_row = current_row.split(at.x);
-        #[allow(clippy::integer_arithmetic)]
-            self.rows.insert(at.y + 1, new_row);
+        let new_row = current_row.split(at.x_word_index);
+        // #[allow(clippy::integer_arithmetic)]
+        current_row.word_width_index = current_row.word_width_index[..at.x_word_index.clone()].to_vec();
+        self.rows.insert(at.y + 1, new_row);
     }
-    pub fn insert(&mut self, at: &Position, c: char) {
+    pub fn insert(&mut self, at: &mut Position, c: char) {
         if at.y > self.rows.len() {
             return;
         }
         self.dirty = true;
-        if c == '\n' {
-            self.insert_newline(at);
-        } else if at.y == self.rows.len() {
+        // if c == '\n' {
+        //     self.insert_newline(at);
+        // } else
+        if at.y == self.rows.len() {
             let mut row = Row::default();
             row.insert(0, c);
             self.rows.push(row);
         } else {
             #[allow(clippy::indexing_slicing)]
                 let row = &mut self.rows[at.y];
-            row.insert(at.x, c);
+            row.insert(at.x_word_index, c);
         }
+        // at.x_word_index += 1;
         self.unhighlight_rows(at.y);
     }
 
@@ -86,13 +89,14 @@ impl Document {
             return;
         }
         self.dirty = true;
-        if at.x == self.rows[at.y].len() && at.y + 1 < len {
+        if at.x_word_index == self.rows[at.y].word_width_index.len() && at.y + 1 < len {
             let next_row = self.rows.remove(at.y + 1);
             let row = &mut self.rows[at.y];
             row.append(&next_row);
         } else {
             let row = &mut self.rows[at.y];
-            row.delete(at.x);
+            // row.delete(at.x);
+            row.delete(at.x_word_index);
         }
         self.unhighlight_rows(at.y);
     }
@@ -116,7 +120,7 @@ impl Document {
         if at.y >= self.rows.len() {
             return None;
         }
-        let mut position = Position { x: at.x, y: at.y };
+        let mut position = Position { x: at.x, x_word_index: at.x_word_index, y: at.y };
 
         let start = if direction == SearchDirection::Forward {
             at.y

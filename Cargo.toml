@@ -9,9 +9,16 @@ edition = "2018"
 [dependencies]
 termion = "1"
 crossterm = "0.21.0"
-unicode-segmentation = "1"
+unicode-segmentation = "1.8.0"
+unicode-width = "0.1"
+log = "0.4"
+log4rs = "1.0.0"
 
 [[example]]
 name = "crossterm_raw"
 path = "examples/crossterm_raw.rs"
+
+[[example]]
+name = "unicode"
+path = "examples/unicode.rs"
 

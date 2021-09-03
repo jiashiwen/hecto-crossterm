@@ -39,7 +39,7 @@ impl Terminal {
 
     #[allow(clippy::cast_possible_truncation)]
     pub fn cursor_position(position: &Position) {
-        let Position { mut x, mut y } = position;
+        let Position { mut x, x_word_index, mut y } = position;
         let x = x as u16;
         let y = y as u16;
         print!("{}", crossterm::cursor::MoveTo(x, y));

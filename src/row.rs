@@ -4,22 +4,34 @@ use crate::SearchDirection;
 use std::cmp;
 use termion::color;
 use unicode_segmentation::UnicodeSegmentation;
+use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
+
 
 #[derive(Default)]
 pub struct Row {
-    string: String,
+    pub string: String,
     highlighting: Vec<highlighting::Type>,
     pub is_highlighted: bool,
     len: usize,
+    width: usize,
+    pub word_width_index: Vec<usize>,
 }
 
 impl From<&str> for Row {
     fn from(slice: &str) -> Self {
+        let mut word_index = vec![];
+        let char_array: Vec<char> = slice.chars().collect();
+
+        for str in char_array {
+            word_index.push(unicode_width::UnicodeWidthChar::width(str).unwrap_or(0));
+        }
         Self {
             string: String::from(slice),
             highlighting: Vec::new(),
             is_highlighted: false,
             len: slice.graphemes(true).count(),
+            width: String::from(slice).width(),
+            word_width_index: word_index,
         }
     }
 }
@@ -62,13 +74,19 @@ impl Row {
     pub fn len(&self) -> usize {
         self.len
     }
+
+    pub fn width(&self) -> usize {
+        self.width
+    }
     pub fn is_empty(&self) -> bool {
         self.len == 0
     }
     pub fn insert(&mut self, at: usize, c: char) {
-        if at >= self.len() {
+        if at >= self.word_width_index.len() {
             self.string.push(c);
-            self.len += 1;
+            self.word_width_index.push(UnicodeWidthChar::width(c).unwrap_or(0));
+            self.len = self.string.len();
+            self.width = self.string.width();
             return;
         }
         let mut result: String = String::new();
@@ -76,8 +94,10 @@ impl Row {
         for (index, grapheme) in self.string[..].graphemes(true).enumerate() {
             length += 1;
             if index == at {
+                log::info!("{}",index);
                 length += 1;
                 result.push(c);
+                self.word_width_index.insert(index, UnicodeWidthChar::width(c).unwrap_or(0));
             }
             result.push_str(grapheme);
         }
@@ -85,25 +105,33 @@ impl Row {
         self.string = result;
     }
     pub fn delete(&mut self, at: usize) {
-        if at >= self.len() {
+        // if at >= self.len() {
+        if at >= self.word_width_index.len() {
             return;
         }
+        let mut word_index: Vec<usize> = vec![];
         let mut result: String = String::new();
         let mut length = 0;
         for (index, grapheme) in self.string[..].graphemes(true).enumerate() {
             if index != at {
                 length += 1;
                 result.push_str(grapheme);
+                word_index.push(UnicodeWidthStr::width(grapheme));
             }
         }
         self.len = length;
         self.string = result;
+        self.word_width_index = word_index;
     }
     pub fn append(&mut self, new: &Self) {
+        for (_, grapheme) in new.string[..].graphemes(true).enumerate() {
+            self.word_width_index.push(UnicodeWidthStr::width(grapheme));
+        }
         self.string = format!("{}{}", self.string, new.string);
         self.len += new.len;
     }
     pub fn split(&mut self, at: usize) -> Self {
+        let mut word_index: Vec<usize> = vec![];
         let mut row: String = String::new();
         let mut length = 0;
         let mut splitted_row: String = String::new();
@@ -115,6 +143,7 @@ impl Row {
             } else {
                 splitted_length += 1;
                 splitted_row.push_str(grapheme);
+                word_index.push(unicode_width::UnicodeWidthStr::width(grapheme));
             }
         }
 
@@ -122,10 +151,12 @@ impl Row {
         self.len = length;
         self.is_highlighted = false;
         Self {
+            width: splitted_row.width().clone(),
             string: splitted_row,
             len: splitted_length,
             is_highlighted: false,
             highlighting: Vec::new(),
+            word_width_index: word_index,
         }
     }
     pub fn as_bytes(&self) -> &[u8] {
@@ -146,7 +177,7 @@ impl Row {
             at
         };
         #[allow(clippy::integer_arithmetic)]
-        let substring: String = self.string[..]
+            let substring: String = self.string[..]
             .graphemes(true)
             .skip(start)
             .take(end - start)
@@ -158,11 +189,11 @@ impl Row {
         };
         if let Some(matching_byte_index) = matching_byte_index {
             for (grapheme_index, (byte_index, _)) in
-                substring[..].grapheme_indices(true).enumerate()
+            substring[..].grapheme_indices(true).enumerate()
             {
                 if matching_byte_index == byte_index {
                     #[allow(clippy::integer_arithmetic)]
-                    return Some(start + grapheme_index);
+                        return Some(start + grapheme_index);
                 }
             }
         }
@@ -224,7 +255,7 @@ impl Row {
     ) -> bool {
         if *index > 0 {
             #[allow(clippy::indexing_slicing, clippy::integer_arithmetic)]
-            let prev_char = chars[*index - 1];
+                let prev_char = chars[*index - 1];
             if !is_separator(prev_char) {
                 return false;
             }
@@ -232,7 +263,7 @@ impl Row {
         for word in keywords {
             if *index < chars.len().saturating_sub(word.len()) {
                 #[allow(clippy::indexing_slicing, clippy::integer_arithmetic)]
-                let next_char = chars[*index + word.len()];
+                    let next_char = chars[*index + word.len()];
                 if !is_separator(next_char) {
                     continue;
                 }
@@ -383,7 +414,7 @@ impl Row {
         if opts.numbers() && c.is_ascii_digit() {
             if *index > 0 {
                 #[allow(clippy::indexing_slicing, clippy::integer_arithmetic)]
-                let prev_char = chars[*index - 1];
+                    let prev_char = chars[*index - 1];
                 if !is_separator(prev_char) {
                     return false;
                 }
@@ -496,7 +527,7 @@ mod test_super {
                 highlighting::Type::Match,
                 highlighting::Type::None,
                 highlighting::Type::None,
-                highlighting::Type::Match
+                highlighting::Type::Match,
             ],
             row.highlighting
         )
